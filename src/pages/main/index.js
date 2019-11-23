@@ -6,35 +6,85 @@ import {
   Dimensions,
   Animated,
   PanResponder,
-  Text
+  Text,
+  Modal,
+  TouchableOpacity
 } from "react-native";
 
 import { Feather as Icon } from "@expo/vector-icons";
 
+import PropTypes from "prop-types";
+import api from "../../services/api";
+
+import * as Permissions from "expo-permissions";
+import { Camera } from "expo-camera";
+
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-const profile = [
-  {
-    id: "1",
-    name: "Bill Gates",
-    uri: require("../../../assets/billgates.jpg")
-  },
-  { id: "2", name: "Cheryl", uri: require("../../../assets/cheryl.jpg") },
-  { id: "3", name: "Savils", uri: require("../../../assets/savils.jpg") },
-  {
-    id: "4",
-    name: "Mark Zuckerberg",
-    uri: require("../../../assets/zuckerberg.jpg")
-  }
-];
+import {
+  CancelButtonContainer,
+  SelectButtonContainer,
+  ButtonText,
+  ModalContainer,
+  ModalImagesListContainer,
+  ModalImagesList,
+  ModalImageItem,
+  ModalButtons,
+  CameraButtonContainer,
+  CancelButtonText,
+  ContinueButtonText,
+  TakePictureButtonContainer,
+  TakePictureButtonLabel,
+  DataButtonsWrapper,
+  Form,
+  Input,
+  DetailsModalFirstDivision,
+  DetailsModalSecondDivision,
+  DetailsModalBackButton,
+  DetailsModalProfileTitle
+} from "./styles";
+
+// const profile = [
+//   {
+//     id: "1",
+//     name: "Bill Gates",
+//     uri: require("../../../assets/billgates.jpg")
+//   },
+//   { id: "2", name: "Cheryl", uri: require("../../../assets/cheryl.jpg") },
+//   { id: "3", name: "Savils", uri: require("../../../assets/savils.jpg") },
+//   {
+//     id: "4",
+//     name: "Mark Zuckerberg",
+//     uri: require("../../../assets/zuckerberg.jpg")
+//   }
+// ];
 
 export default class Main extends React.Component {
+  static propTypes = {
+    navigation: PropTypes.shape({
+      state: PropTypes.shape({
+        params: PropTypes.shape({
+          token: PropTypes.string
+        })
+      })
+    }).isRequired
+  };
+
   constructor() {
     super();
     this.position = new Animated.ValueXY();
     this.state = {
-      currentIndex: 0
+      currentIndex: 0,
+      profiles: [],
+      cameraModalOpened: false,
+      dataModalOpened: false,
+      profileData: {
+        title: "",
+        images: []
+      },
+      hasCameraPermission: true,
+      type: Camera.Constants.Type.back
     };
 
     this.rotate = this.position.x.interpolate({
@@ -116,8 +166,17 @@ export default class Main extends React.Component {
     });
   }
 
+  async componentDidMount() {
+    try {
+      const res = await api.get("/profile", {});
+      this.setState({ profiles: res.data });
+    } catch (err) {
+      return err;
+    }
+  }
+
   renderProfile = () => {
-    return profile
+    return this.state.profiles
       .map((item, i) => {
         if (i < this.state.currentIndex) {
           return null;
@@ -192,9 +251,11 @@ export default class Main extends React.Component {
                   resizeMode: "cover",
                   borderRadius: 20
                 }}
-                source={item.uri}
+                source={{
+                  uri: `http://5a355bcd.ngrok.io/images/${item.images[0].path}`
+                }}
               />
-              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.name}>{item.title}</Text>
             </Animated.View>
           );
         } else {
@@ -218,7 +279,9 @@ export default class Main extends React.Component {
                   resizeMode: "cover",
                   borderRadius: 20
                 }}
-                source={item.uri}
+                source={{
+                  uri: `http://5a355bcd.ngrok.io/images/${item.images[0].path}`
+                }}
               />
             </Animated.View>
           );
@@ -227,12 +290,89 @@ export default class Main extends React.Component {
       .reverse();
   };
 
+  handleCameraModalOpenClose = () =>
+    this.setState({ cameraModalOpened: !this.state.cameraModalOpened });
+
+  handleTakePicture = () => {};
+
+  renderImageList = () => {};
+
+  handleDataModalClose = () => {};
+
+  renderCameraModal = () => {
+    <Modal
+      visible={this.state.cameraModalOpened}
+      transparent={false}
+      animationType="slide"
+      onRequestClose={this.handleCameraModalOpenClose}
+    >
+      <ModalContainer>
+        <View style={{ flex: 1 }}>
+          <Camera
+            style={{ flex: 1 }}
+            type={this.state.type}
+            ref={camera => {
+              this.camera = camera;
+            }}
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "transparent",
+                flexDirection: "row"
+              }}
+            >
+              <TouchableOpacity
+                style={{
+                  flex: 0.1,
+                  alignSelf: "flex-end",
+                  alignItems: "center"
+                }}
+                onPress={() => {
+                  this.setState({
+                    type:
+                      this.state.type === Camera.Constants.Type.back
+                        ? Camera.Constants.Type.front
+                        : Camera.Constants.Type.back
+                  });
+                }}
+              >
+                <Text
+                  style={{ fontSize: 18, marginBottom: 10, color: "white" }}
+                >
+                  Flip
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <TakePictureButtonContainer onPress={this.handleTakePicture}>
+              <TakePictureButtonLabel />
+            </TakePictureButtonContainer>
+          </Camera>
+        </View>
+      </ModalContainer>
+      {/*this.renderImageList()*/}
+      <ModalButtons>
+        <CameraButtonContainer onPress={this.handleCameraModalOpenClose}>
+          <CancelButtonText>Cancelar</CancelButtonText>
+        </CameraButtonContainer>
+        <CameraButtonContainer onPress={this.handleDataModalClose}>
+          <ContinueButtonText>Cancelar</ContinueButtonText>
+        </CameraButtonContainer>
+      </ModalButtons>
+    </Modal>;
+  };
+
   render() {
     return (
       <View style={{ flex: 1 }}>
         <View style={{ height: 60 }}>
           <View style={styles.header}>
-            <Icon name="user" size={32} color="grey" />
+            <Icon
+              name="user"
+              size={32}
+              color="grey"
+              onPress={this.handleCameraModalOpenClose()}
+            />
             <Icon name="message-circle" size={32} color="grey" />
           </View>
         </View>
@@ -247,11 +387,12 @@ export default class Main extends React.Component {
             </View>
           </View>
         </View>
+
+        {this.renderCameraModal()}
       </View>
     );
   }
 }
-
 const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
@@ -260,7 +401,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-evenly",
     padding: 0
   },
   circle: {
